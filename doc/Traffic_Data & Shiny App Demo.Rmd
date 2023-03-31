@@ -1,0 +1,297 @@
+---
+title: "Project 2"
+author: "Junhan Huang"
+date: "2023-02-17"
+output: html_document
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+if (!require("ggplot2")) {
+    install.packages("ggplot2")
+    library(ggplot2)
+}
+
+if (!require("dplyr")) {
+    install.packages("dplyr")
+    library(dplyr)
+}
+
+if (!require("tidyr")) {
+    install.packages("tidyr")
+    library(tidyr)
+}
+
+if (!require("shiny")) {
+    install.packages("shiny")
+    library(shiny)
+}
+
+
+```
+
+## Original Dataset Import
+```{r}
+Traffic<-read.csv("~/Automated_Traffic_Volume_Counts.csv")
+
+Traffic$Yr<-as.numeric(Traffic$Yr)
+Traffic$M<-as.numeric(Traffic$M)
+Traffic$D<-as.numeric(Traffic$D)
+
+```
+
+
+## Calculate The Daliy Total Amount of Car observered in each segment
+```{r, warning=FALSE, message=FALSE}
+# Segment Traffic Count is the total traffic count of each segment in one day 
+Segment_Daliy_count<-
+  Traffic%>%
+  group_by(Yr, M, D, SegmentID, Boro)%>%
+  summarise(Segment_Traffic_Count=sum(Vol))%>%
+  filter(Yr>=2019&Yr<=2021)
+ 
+head(Segment_Daliy_count) 
+```
+
+```{r, warning=FALSE, message=FALSE}
+# Boro Average Count is the mean of Segment Traffic Count in each borough in one day
+Boro_Average_Count<-
+  Segment_Daliy_count%>%
+  group_by(Yr, M, D, Boro)%>%
+  summarise(Boro_Average_Traffic_Count=mean(Segment_Traffic_Count))
+
+head(Boro_Average_Count)
+```
+
+```{r, warning=FALSE, message=FALSE}
+# City Average Count is the mean of Segment Traffic Count in New York City in one day
+City_Average_Count<-
+  Segment_Daliy_count%>%
+  group_by(Yr, M, D)%>%
+  summarise(City_Average_Traffic_Count=mean(Segment_Traffic_Count))
+
+head(City_Average_Count)
+```
+
+
+```{r}
+Daliy_Average_Count<-
+  Boro_Average_Count%>%
+  left_join(City_Average_Count, by=c('Yr', 'M', 'D'))%>%
+  unite("Date", Yr,M, D,sep = "/",remove = TRUE)
+
+Daliy_Average_Count$Date<-as.Date(Daliy_Average_Count$Date, "%Y/%m/%d")
+
+head(Daliy_Average_Count, 50)
+```
+
+
+
+
+
+
+# Shiny App
+
+```{r}
+
+
+ui <- navbarPage(
+        "Transportation",
+        
+        #################### Introduction ####################
+        tabPanel(
+            "Introduction",
+            tags$img(
+                src = "https://news.artnet.com/app/news-upload/2022/03/5th-Ave-1024x657.jpg",
+                width = "100%",
+                style = "opacity: 1"
+            ),
+            fluidRow(
+                absolutePanel(
+                    style = "background-color: rgba(255,255,255,0.75)",
+                    top = "50%",
+                    left = "25%",
+                    right = "25%",
+                    height = 170,
+                    
+                    tags$p(
+                        style = "padding: 5%;  font-family: Georgia, serif; font-size: 120%",
+                        "At March "
+                    )
+                )
+            )
+        ),
+
+        #################### Automobile Page ####################
+        tabPanel(
+            "Automobile",
+           
+            tags$img(
+                src = "https://www.amny.com/wp-content/uploads/2020/03/GettyImages-474574164-2048x1365.jpg",
+                width = "100%",
+                style = "opacity: 1"
+            ), 
+            
+            
+            
+            absolutePanel(
+                    style = "background-color: rgba(255,255,255,0.75)",
+                    top = "15%",
+                    left = "5%",
+                    right = "5%",
+                    height = 500,
+                    
+                    sidebarLayout(
+                      sidebarPanel(
+                      helpText("Create demographic maps with Daliy Average Automobile Count in each Boro"),
+                      
+                      selectInput("Boro", 
+                                  label = "Choose a variable to display",choices = c("Bronx", 
+                                                                                     "Brooklyn",
+                                                                                     "Manhattan", 
+                                                                                     "Queens", 
+                                                                                     "Staten Island"),
+                                  selected = "Manhattan"),
+                      
+                      dateInput("Start_Date", "Start Date:", value = "2019/01/01"),
+                      dateInput("End_Date", "End Date:", value = "2021/12/31")),
+                      
+                      mainPanel(plotOutput("Car_plot"))
+                      )
+                    )
+            
+            
+      ),
+        #################### References Page ####################
+        tabPanel(
+            "References",
+            tags$img(
+                src = "https://www.columbia.edu/content/sites/default/files/styles/cu_crop/public/content/Campus%20Images/Low_Library_NYC_skyline_night_lights.jpg?h=df0fa240&itok=M4yELnWC",
+                width = "100%",
+                style = "opacity: 1"
+            ),
+            fluidRow(
+                absolutePanel(
+                    style = "background-color: rgba(255,255,255,0.75)",
+                    top = "10%",
+                    left = "5%",
+                    right = "40%",
+                    height = 170,
+                    
+                    tags$h2(" Data Sources", style = "padding: 1%;  font-family: Georgia, serif; font-size: 150%"),
+                    tags$a( " Automated Traffic Volume Counts (Traffic Data)", 
+                            href ="https://data.cityofnewyork.us/Transportation/Automated-Traffic-Volume-Counts/7ym2-wayt", 
+                            style = "padding: 3%;  font-family: Georgia, serif; font-size: 100%"),
+                    br(), 
+                    tags$a( " Automated Traffic Volume Counts (Traffic Data)", 
+                            href ="https://data.cityofnewyork.us/Transportation/Automated-Traffic-Volume-Counts/7ym2-wayt", 
+                            style = "padding: 3%;  font-family: Georgia, serif; font-size: 100%"),
+                    br()
+                    ),
+                
+                absolutePanel(
+                    style = "background-color: rgba(255,255,255,0.75)",
+                    top = "35%",
+                    left = "5%",
+                    right = "40%",
+                    height = 170,
+                    
+                    tags$h2("Contributors", style = "padding: 1%;  font-family: Georgia, serif; font-size: 150%"),
+                    tags$a( "Junhan Huang", 
+                            href ="https://github.com/jasoonhh", 
+                            style = "padding: 3%;  font-family: Georgia, serif; font-size: 100%"),
+                    br(), 
+                    tags$a( "Junhan Huang", 
+                            href ="https://github.com/jasoonhh", 
+                            style = "padding: 3%;  font-family: Georgia, serif; font-size: 100%"),
+                    br(), 
+                    tags$a( "Junhan Huang", 
+                            href ="https://github.com/jasoonhh", 
+                            style = "padding: 3%;  font-family: Georgia, serif; font-size: 100%"),
+                    br(), 
+                    tags$a( "Junhan Huang", 
+                            href ="https://github.com/jasoonhh", 
+                            style = "padding: 3%;  font-family: Georgia, serif; font-size: 100%"),
+                    br()
+                    ),
+                absolutePanel(
+                    style = "background-color: rgba(255,255,255,0.75)",
+                    top = "60%",
+                    left = "5%",
+                    right = "40%",
+                    height = 170,
+                    
+                    tags$h2("GitHub Repository", style = "padding: 1%;  font-family: Georgia, serif; font-size: 150%"),
+                    tags$a(
+                      "https://github.com/TZstatsADS/ads-spring2023-project2-group_6",
+                      style = "padding: 3%;  font-family: Georgia, serif; font-size: 100%")
+                    )
+            )
+            
+            
+    ) # end of navbar
+) # end of ui
+
+server <- function(input, output) {
+  # Import data
+  
+  Traffic$Yr<-as.numeric(Traffic$Yr)
+  Traffic$M<-as.numeric(Traffic$M)
+  Traffic$D<-as.numeric(Traffic$D)
+  
+  # Segment Traffic Count is the total traffic count of each segment in one day 
+  Segment_Daliy_count<-
+  Traffic%>%
+  group_by(Yr, M, D, SegmentID, Boro)%>%
+  summarise(Segment_Traffic_Count=sum(Vol))%>%
+  filter(Yr>=2019&Yr<=2021)
+  
+  # Boro Average Count is the mean of Segment Traffic Count in each borough in one day
+  Boro_Average_Count<-
+  Segment_Daliy_count%>%
+  group_by(Yr, M, D, Boro)%>%
+  summarise(Boro_Average_Traffic_Count=mean(Segment_Traffic_Count))
+  
+  # City Average Count is the mean of Segment Traffic Count in New York City in one day
+  City_Average_Count<-
+  Segment_Daliy_count%>%
+  group_by(Yr, M, D)%>%
+  summarise(City_Average_Traffic_Count=mean(Segment_Traffic_Count))
+  
+  #
+  Daliy_Average_Count<-
+  Boro_Average_Count%>%
+  left_join(City_Average_Count, by=c('Yr', 'M', 'D'))%>%
+  unite("Date", Yr,M, D,sep = "/",remove = TRUE)
+  Daliy_Average_Count$Date<-as.Date(Daliy_Average_Count$Date, "%Y/%m/%d")
+  
+
+  output$Car_plot<-renderPlot({
+    
+    B<-input$Boro
+    Start_Date<-input$Start_Date
+    End_Date<-input$End_Date
+    
+    ggplot(data = Daliy_Average_Count%>%filter(Boro==B & Date>=Start_Date & Date<=End_Date), mapping = aes(x = Date, y =Boro_Average_Traffic_Count )) + geom_bar(stat = 'identity')
+    
+    })
+
+}
+
+shinyApp(ui, server)
+
+
+
+```
+```{r}
+
+
+
+B<-"Manhattan"
+Start_Date<-"2020/01/01"
+End_Date<-"2021/01/01"
+
+ggplot(data = Daliy_Average_Count%>%filter(Boro==B&Date>=Start_Date & Date<=End_Date), mapping = aes(x = Date, y =Boro_Average_Traffic_Count )) + geom_bar(stat = 'identity')
+```
+
